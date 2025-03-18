@@ -1,5 +1,8 @@
 use nih_plug::{prelude::*, util::db_to_gain_fast};
+use nih_plug_vizia::ViziaState;
 use std::sync::Arc;
+
+mod editor;
 
 const PITCH_RANGE: f32 = 2.0; // semitones
 const MAX_VOICES: usize = 32;
@@ -44,6 +47,8 @@ impl Note {
 
 #[derive(Params)]
 struct FuririParams {
+    #[persist = "editor-state"]
+    editor_state: Arc<ViziaState>,
     #[id = "tuning"]
     tuning: FloatParam,
     #[id = "basenote"]
@@ -102,7 +107,8 @@ impl Default for Furiri {
 impl Default for FuririParams {
     fn default() -> Self {
         Self {
-            tuning: FloatParam::new("Tuning", 440.0, FloatRange::Skewed { min: 20.0, max: 20000.0, factor: 1.0/12.0 })
+            editor_state: editor::default_state(),
+            tuning: FloatParam::new("Tuning", 440.0, FloatRange::Skewed { min: 20.0, max: 20000.0, factor: 0.25 })
                 .with_step_size(0.01).with_unit(" Hz"),
             basenote: IntParam::new("Base Note", 69, IntRange::Linear { min: 0, max: 127 }),
             gain: FloatParam::new("Gain", -6.0, FloatRange::Linear { min: -60.0, max: 0.0 })
@@ -145,7 +151,7 @@ impl Default for EnvelopeParams {
                 .with_step_size(0.1).with_unit(" ms"),
             sustain: FloatParam::new("Sustain", 1.0, FloatRange::Linear { min: 0.0, max: 1.0 })
                 .with_step_size(0.01),
-            release: FloatParam::new("Release", 20.0, FloatRange::Skewed { min: 0.0, max: 10000.0, factor: 0.1 })
+            release: FloatParam::new("Release", 20.0, FloatRange::Skewed { min: 0.0, max: 10000.0, factor: 0.5 })
                 .with_step_size(0.1).with_unit(" ms")
         }
     }
@@ -162,11 +168,11 @@ impl Plugin for Furiri {
     const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[AudioIOLayout {
         main_input_channels: None,
         main_output_channels: NonZeroU32::new(2),
-
-        aux_input_ports: &[],
-        aux_output_ports: &[],
-
-        names: PortNames::const_default(),
+        ..AudioIOLayout::const_default()
+    }, AudioIOLayout {
+        main_input_channels: None,
+        main_output_channels: NonZeroU32::new(1),
+        ..AudioIOLayout::const_default()
     }];
 
 
@@ -180,6 +186,13 @@ impl Plugin for Furiri {
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
+    }
+
+    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        editor::create(
+            self.params.clone(),
+            self.params.editor_state.clone(),
+        )
     }
 
     fn initialize(
@@ -284,13 +297,4 @@ impl ClapPlugin for Furiri {
     const CLAP_FEATURES: &'static [ClapFeature] = &[ClapFeature::Stereo, ClapFeature::Instrument, ClapFeature::Synthesizer];
 }
 
-impl Vst3Plugin for Furiri {
-    const VST3_CLASS_ID: [u8; 16] = *b"nojufepluhfuriri";
-
-    // And also don't forget to change these categories
-    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
-        &[Vst3SubCategory::Instrument, Vst3SubCategory::Synth];
-}
-
 nih_export_clap!(Furiri);
-nih_export_vst3!(Furiri);
