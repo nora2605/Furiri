@@ -1,10 +1,17 @@
 use nih_plug::prelude::Editor;
 use nih_plug_vizia::vizia::prelude::*;
+
 use nih_plug_vizia::widgets::*;
 use nih_plug_vizia::{create_vizia_editor, ViziaState, ViziaTheming};
 use std::sync::Arc;
 
 use crate::FuririParams;
+
+mod adsr;
+use adsr::Adsr;
+
+mod waveform;
+use waveform::Waveform;
 
 #[derive(Lens)]
 struct Data {
@@ -13,7 +20,6 @@ struct Data {
 
 impl Model for Data {}
 
-// Makes sense to also define this here, makes it a bit easier to keep track of
 pub(crate) fn default_state() -> Arc<ViziaState> {
     ViziaState::new(|| (800, 400))
 }
@@ -40,15 +46,25 @@ pub(crate) fn create(
                 ParamSlider::new(cx, Data::params, |params| &params.envelope.decay);
                 ParamSlider::new(cx, Data::params, |params| &params.envelope.sustain);
                 ParamSlider::new(cx, Data::params, |params| &params.envelope.release);
-            }).row_between(Pixels(10.0));
+                Label::new(cx, "Gain").height(Pixels(20.0));
+                ParamSlider::new(cx, Data::params, |params| &params.gain);
+                Adsr::new(cx, Data::params).height(Pixels(50.0));
+            })
+            .row_between(Pixels(10.0));
 
             VStack::new(cx, |cx| {
-                Label::new(cx, "Gain").height(Pixels(20.0)).top(Pixels(10.0));
-                ParamSlider::new(cx, Data::params, |params| &params.gain);
-                Label::new(cx, "Base Freq & Midi Note").height(Pixels(20.0)).top(Pixels(20.0));
-                ParamSlider::new(cx, Data::params, |params| &params.tuning);
+                Label::new(cx, "Base Freq & Midi Note")
+                    .height(Pixels(20.0))
+                    .top(Pixels(20.0));
+                ParamSlider::new(cx, Data::params, |params| &params.basepitch);
                 ParamSlider::new(cx, Data::params, |params| &params.basenote);
-            }).row_between(Pixels(10.0)).top(Pixels(25.0));
+                Label::new(cx, "Tuning")
+                    .height(Pixels(20.0));
+                ParamSlider::new(cx, Data::params, |params| &params.tuning);
+                Waveform::new(cx, Data::params).height(Pixels(100.0));
+            })
+            .row_between(Pixels(10.0))
+            .top(Pixels(25.0));
 
             VStack::new(cx, |cx| {
                 Label::new(cx, "Overtones");
@@ -60,11 +76,12 @@ pub(crate) fn create(
                 ParamSlider::new(cx, Data::params, |params| &params.overtones.overtone6);
                 ParamSlider::new(cx, Data::params, |params| &params.overtones.overtone7);
                 ParamSlider::new(cx, Data::params, |params| &params.overtones.overtone8);
-            }).row_between(Pixels(10.0)).left(Pixels(50.0)).top(Pixels(20.0));
+            })
+            .row_between(Pixels(10.0))
+            .top(Pixels(20.0));
         })
         .top(Pixels(10.0))
         .col_between(Pixels(50.0))
-        .child_left(Stretch(1.0))
-        .child_right(Stretch(1.0));
+        .left(Pixels(20.0));
     })
 }
